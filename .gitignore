@@ -6,6 +6,7 @@ reports/
 backups/
 # Local configuration and secrets
 *.local
+!tests/fixtures/**/rc.local
 .env
 .env.*
 *.key

@@ -64,6 +64,8 @@ mk_env() {
     [[ -d "$fx/find" ]] && cp -R "$fx/find/." "$E/find/"
     [[ -f "$fx/stat.db" ]] && cp "$fx/stat.db" "$E/stat.db"
   done
+  # git does not store empty directories; the fixtures expect these to exist
+  mkdir -p "$E/root/tmp" "$E/root/usr/bin" "$E/root/var/lib/apt/lists"
   : >"$E/mock.log"
   mk_mockbin "$E/bin" "${MOCK_CMDS_ALL[@]}"
   T_EUID=""; T_STDIN=""; T_EXTRA_ENV=""
