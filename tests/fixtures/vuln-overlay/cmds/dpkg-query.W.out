@@ -1,0 +1,10 @@
+bash
+coreutils
+cinnamon
+openssh-server
+nmap
+john
+hydra
+ufw
+vsftpd
+apache2

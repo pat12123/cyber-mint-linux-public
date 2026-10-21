@@ -1,0 +1,4 @@
+127.0.0.1 localhost
+127.0.1.1 mint-test
+1.2.3.4 security.ubuntu.com
+::1 ip6-localhost ip6-loopback

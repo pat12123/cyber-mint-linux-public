@@ -1,0 +1,7 @@
+cron.service            loaded active running Regular background program processing daemon
+cups.service            loaded active running CUPS Scheduler
+dbus.service            loaded active running D-Bus System Message Bus
+lightdm.service         loaded active running Light Display Manager
+ssh.service             loaded active running OpenBSD Secure Shell server
+vsftpd.service          loaded active running vsftpd FTP server
+smbd.service            loaded active running Samba SMB Daemon

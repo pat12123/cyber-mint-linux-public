@@ -1,0 +1,5 @@
+cron.service         enabled enabled
+ssh.service          enabled enabled
+vsftpd.service       enabled enabled
+smbd.service         enabled enabled
+apache2.service      enabled enabled

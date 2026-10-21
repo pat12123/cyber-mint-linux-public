@@ -1,0 +1,6 @@
+RELEASE=21.3
+CODENAME=virginia
+EDITION="Cinnamon"
+DESCRIPTION="Linux Mint 21.3 Virginia"
+DESKTOP=Gnome
+TOOLKIT=GTK

@@ -1,0 +1,6 @@
+Reading package lists...
+Building dependency tree...
+Calculating upgrade... Done
+Inst libssl3 [3.0.2-0ubuntu1.10] (3.0.2-0ubuntu1.15 Ubuntu:22.04/jammy-security [amd64])
+Inst openssh-server [1:8.9p1-3ubuntu0.4] (1:8.9p1-3ubuntu0.6 Ubuntu:22.04/jammy-updates, Ubuntu:22.04/jammy-security [amd64])
+Inst firefox [120.0] (121.0 Linux Mint:virginia/upstream [amd64])

@@ -1,0 +1,6 @@
+avahi-daemon.service enabled enabled
+cron.service         enabled enabled
+cups.service         enabled enabled
+lightdm.service      enabled enabled
+NetworkManager.service enabled enabled
+rsyslog.service      enabled enabled

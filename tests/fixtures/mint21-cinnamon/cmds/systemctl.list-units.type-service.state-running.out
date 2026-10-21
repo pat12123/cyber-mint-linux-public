@@ -1,0 +1,10 @@
+accounts-daemon.service loaded active running Accounts Service
+avahi-daemon.service    loaded active running Avahi mDNS/DNS-SD Stack
+cron.service            loaded active running Regular background program processing daemon
+cups.service            loaded active running CUPS Scheduler
+dbus.service            loaded active running D-Bus System Message Bus
+lightdm.service         loaded active running Light Display Manager
+NetworkManager.service  loaded active running Network Manager
+polkit.service          loaded active running Authorization Manager
+rsyslog.service         loaded active running System Logging Service
+systemd-logind.service  loaded active running User Login Management

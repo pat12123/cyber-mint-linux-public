@@ -1,0 +1,4 @@
+# /etc/profile: system-wide .profile file for the Bourne shell
+if [ "${PS1-}" ]; then
+  PS1='\u@\h:\w\$ '
+fi
