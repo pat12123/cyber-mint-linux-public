@@ -74,7 +74,7 @@ audit_network() {
     f_unperformed "$cat" "NET-LISTEN" "Listening ports" "${NET_ERR:-could not list sockets}"
   else
     local ev="PROTO  ADDRESS                PORT   PROCESS"$'\n' line proto addr port proc exposed=0
-    local remote_ev=""
+    local remote_ev="" ; local -A seen_port=()
     while IFS='|' read -r proto addr port proc; do
       [[ -z "$proto" ]] && continue
       local pkg=""
@@ -82,6 +82,8 @@ audit_network() {
       ev+=$(printf '%-6s %-22s %-6s %s%s' "$proto" "$addr" "$port" "${proc:-<unknown>}" "${pkg:+  [package: $pkg]}")$'\n'
       net_is_loopback "$addr" && continue
       exposed=$((exposed+1))
+      [[ -n "${seen_port[$proto-$port]:-}" ]] && continue      # same port on IPv4 and IPv6: one finding is enough (both lines stay in the listing)
+      seen_port[$proto-$port]=1
       local info; info=$(net_port_info "$proto" "$port") || info=""
       if [[ -n "$info" ]] && { tk_in_list "$port/$proto" "$TK_ALLOW_PORTS" || tk_in_list "$port/${proto:0:3}" "$TK_ALLOW_PORTS"; }; then
         f_info "$cat" "NET-PORT-$proto-$port" "Port $port/$proto is reachable beyond loopback (allowed by your profile)" "$proto $addr:$port process=${proc:-<unknown>}${pkg:+ package=$pkg}"

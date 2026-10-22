@@ -109,11 +109,18 @@ app_audit_samba() {
   local cat=$1 f; f=$(tkp /etc/samba/smb.conf)
   [[ -r "$f" ]] || return 0
   local hits
-  hits=$(grep -nEi '^[[:space:]]*(guest ok|public|usershare allow guests)[[:space:]]*=[[:space:]]*(yes|true|1)|^[[:space:]]*security[[:space:]]*=[[:space:]]*share|^[[:space:]]*map to guest[[:space:]]*=[[:space:]]*bad user' "$f" || true)
-  if [[ -n "$hits" ]]; then
-    f_potential medium "$cat" "APP-SAMBA-GUEST" "Samba allows guest/anonymous access" "$hits" \
+  local strong stock
+  strong=$(grep -nEi '^[[:space:]]*(guest ok|public)[[:space:]]*=[[:space:]]*(yes|true|1)|^[[:space:]]*security[[:space:]]*=[[:space:]]*share' "$f" || true)
+  # these two are in the stock Ubuntu/Mint smb.conf and expose nothing by themselves
+  stock=$(grep -nEi '^[[:space:]]*usershare allow guests[[:space:]]*=[[:space:]]*(yes|true|1)|^[[:space:]]*map to guest[[:space:]]*=[[:space:]]*bad user' "$f" || true)
+  if [[ -n "$strong" ]]; then
+    f_potential medium "$cat" "APP-SAMBA-GUEST" "Samba allows guest/anonymous access" "$strong${stock:+
+$stock}" \
       "Guest shares expose files to anyone on the network. Whether guest access is intended depends on the README." \
       "Set 'guest ok = no' / remove 'map to guest' for shares that should be private, then restart smbd." "Clients relying on guest access lose it." - yes
+  elif [[ -n "$stock" ]]; then
+    f_info "$cat" "APP-SAMBA-STOCK-GUEST" "Samba has the stock guest-related settings (no share allows guests)" "$stock
+'map to guest = bad user' and 'usershare allow guests = yes' ship in the default smb.conf; they only matter if a share sets 'guest ok = yes'."
   fi
   local shares; shares=$(grep -E '^\[[^]]+\]' "$f" | grep -vEi '^\[(global|printers|print\$)\]' | tr '\n' ' ' || true)
   [[ -n "$shares" ]] && f_info "$cat" "APP-SAMBA-SHARES" "Samba shares defined" "$shares"

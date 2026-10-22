@@ -54,7 +54,53 @@ audit_desktop_security() {
     f_unperformed "$cat" "DESK-LOGIN-MANAGER" "Login-manager security checks" "Display manager '$dm' is not LightDM; Mint uses LightDM by default and this toolkit has no checks for $dm."
   fi
   ds_audit_screenlock "$cat"
+  ds_audit_firefox "$cat"
   return 0
+}
+
+# Firefox preferences that weaken the browser (pref name|value that is bad).  Only plain pref files are read; JSON enterprise policies are not parsed.
+DS_FF_BAD='dom.disable_open_during_load|false
+browser.safebrowsing.malware.enabled|false
+browser.safebrowsing.phishing.enabled|false
+browser.safebrowsing.downloads.enabled|false
+xpinstall.signatures.required|false
+extensions.blocklist.enabled|false
+security.tls.version.min|0
+security.tls.version.min|1
+security.ssl.require_safe_negotiation|false'
+
+ds_ff_value() { # file pref-name -> last value in the file (quotes/space stripped), or nothing
+  grep -E "^[[:space:]]*(user_)?pref\([[:space:]]*\"${2//./\\.}\"[[:space:]]*," "$1" 2>/dev/null | tail -n1 \
+    | sed -E 's/^[^,]*,[[:space:]]*//; s/\)[[:space:]]*;?[[:space:]]*$//' | tr -d '"[:space:]'
+}
+
+ds_audit_firefox() {
+  local cat=$1 f name bad v hits="" n=0 ng
+  local -a files=()
+  ng=$(shopt -p nullglob); shopt -s nullglob
+  files+=("$(tkp /etc/firefox)"/syspref.js "$(tkp /usr/lib/firefox/defaults/pref)"/*.js)
+  files+=("$(tkp /home)"/*/.mozilla/firefox/*/{prefs,user}.js "$(tkp /home)"/*/snap/firefox/common/.mozilla/firefox/*/{prefs,user}.js)
+  files+=("$(tkp /root)"/.mozilla/firefox/*/{prefs,user}.js)
+  eval "$ng"
+  for f in "${files[@]}"; do
+    [[ -f "$f" && -r "$f" ]] || continue
+    n=$((n+1))
+    while IFS='|' read -r name bad; do
+      [[ -z "$name" ]] && continue
+      v=$(ds_ff_value "$f" "$name")
+      [[ "$v" == "$bad" ]] && hits+="$(tk_unroot "$f"): $name = $v"$'\n'
+    done <<<"$DS_FF_BAD"
+  done
+  if [[ -n "$hits" ]]; then
+    f_potential low "$cat" "DESK-FIREFOX-INSECURE" "Firefox has security features switched off" "$hits" \
+      "Popup blocking, Safe Browsing, extension signature checks, the add-on blocklist or modern TLS are turned off in a Firefox preference file." \
+      "In Firefox open about:config, find each preference above and reset it (right-click > Reset), or delete the line from the file while Firefox is closed (see docs/manual-fixes.md)." \
+      "None expected for normal browsing." - yes
+  elif [[ $n -gt 0 ]]; then
+    f_info "$cat" "DESK-FIREFOX" "Firefox preference files checked" "$n file(s) read; none of the checked settings is weakened. Enterprise policies (policies.json) and built-in defaults are not evaluated."
+  else
+    f_info "$cat" "DESK-FIREFOX" "No Firefox preference files found" "Firefox is not installed or no profile has been created yet."
+  fi
 }
 
 ds_audit_lightdm() {

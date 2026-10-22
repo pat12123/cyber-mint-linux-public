@@ -36,6 +36,17 @@ audit_authentication() {
       *) f_confirmed medium "$cat" "AUTH-LOGINDEFS-ENCRYPT" "login.defs ENCRYPT_METHOD is weak ($enc)" "$ev" \
            "Weak hashing makes stolen hashes quick to crack." "Set ENCRYPT_METHOD to SHA512 or YESCRYPT." "Existing hashes stay weak until each password is changed." - yes;;
     esac
+    if [[ ! "$min" =~ ^[0-9]+$ ]] || (( min < 1 )); then
+      f_potential low "$cat" "AUTH-LOGINDEFS-MINDAYS" "login.defs has no minimum password age (PASS_MIN_DAYS=${min:-unset})" "$ev" \
+        "With no minimum age a user can change a password several times in a row to get back to an old one." \
+        "If the README asks for password ageing, set PASS_MIN_DAYS to 1 in /etc/login.defs (new accounts only; 'chage -m 1 USER' for existing ones; see docs/manual-fixes.md)." \
+        "Affects only accounts created afterwards." - yes
+    fi
+    if [[ "$warn" =~ ^[0-9]+$ ]] && (( warn < 7 )); then
+      f_potential low "$cat" "AUTH-LOGINDEFS-WARN" "login.defs warns about expiring passwords late (PASS_WARN_AGE=$warn)" "$ev" \
+        "Users get fewer than 7 days of warning before a password expires." \
+        "Set PASS_WARN_AGE to 7 in /etc/login.defs (see docs/manual-fixes.md)." "Affects only accounts created afterwards." - yes
+    fi
     local um; um=$(tk_last_value "$ld" UMASK || true)
     [[ -n "$um" && "$um" != 022 && "$um" != 027 && "$um" != 077 && "$um" != 0022 && "$um" != 0027 && "$um" != 0077 ]] && \
       f_potential low "$cat" "AUTH-LOGINDEFS-UMASK" "login.defs UMASK is permissive ($um)" "UMASK=$um" "New files may be created group/world writable." "Consider 022 or 027." "May affect shared-directory workflows." - yes

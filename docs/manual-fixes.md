@@ -201,6 +201,36 @@ sudoedit /etc/apt/apt.conf.d/FILE                                    # put // in
 
 ---
 
+## 10. More common items the audit now reports
+
+These were never automated; the audit reports them and these are the commands. Same rules: check the README, change one thing, refresh the Scoring Report.
+
+**Password minimum age and warning days (`AUTH-LOGINDEFS-MINDAYS`, `AUTH-LOGINDEFS-WARN`)** - same file as step 2; also set `PASS_MIN_DAYS 1` and `PASS_WARN_AGE 7`.
+Existing users: `sudo chage -m 1 -W 7 USER`.
+
+**Automatic security updates (`UPD-AUTO`)** - Mint uses the Update Manager, so nothing installs updates unattended. Only if the README wants it:
+```bash
+sudo apt install unattended-upgrades
+sudo dpkg-reconfigure -plow unattended-upgrades        # answer Yes
+cat /etc/apt/apt.conf.d/20auto-upgrades                # should now contain APT::Periodic::Unattended-Upgrade "1";
+```
+Undo: set that value to `"0"` or `sudo apt remove unattended-upgrades`. Installing the pending updates themselves is the Update Manager (or `sudo apt update && sudo apt upgrade`), a bigger change: do it last, and only if the README allows.
+
+**Games (`UPD-GAMES`)** - only if the README prohibits them:
+```bash
+dpkg -l | grep -E 'aisleriot|gnome-mines|gnome-mahjongg|gnome-sudoku|quadrapassel|supertux'     # what is installed
+sudo apt remove PACKAGE                                                                          # read apt's removal list first
+```
+Undo: `sudo apt install PACKAGE`.
+
+**Firefox settings (`DESK-FIREFOX-INSECURE`)** - the audit names the file and the preference. Easiest fix: in Firefox open `about:config`, search the preference,
+and use the reset arrow. Or close Firefox and delete the offending `user_pref(...)` line from the named file (back it up first). The values that count as weakened are:
+popup blocker off (`dom.disable_open_during_load=false`), Safe Browsing off (`browser.safebrowsing.malware|phishing|downloads.enabled=false`),
+extension signing off (`xpinstall.signatures.required=false`), blocklist off (`extensions.blocklist.enabled=false`), TLS minimum 0 or 1
+(`security.tls.version.min`), and `security.ssl.require_safe_negotiation=false`. Policies in `policies.json` are not checked.
+
+---
+
 ## What the audit also recommends (never automated)
 
 These were always manual because the right answer depends on the README: removing or changing users and groups, stopping or disabling services,

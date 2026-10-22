@@ -2,6 +2,11 @@
 
 ## 0.2.0 - unreleased (research-driven improvements)
 
+### Added (later)
+* New read-only checks: `AUTH-LOGINDEFS-MINDAYS`, `AUTH-LOGINDEFS-WARN` (password ageing), `UPD-AUTO` (automatic security updates, now Potential instead of Info),
+  `UPD-GAMES` (installed games), `DESK-FIREFOX-INSECURE` (Firefox preferences that weaken the browser). Commands in `docs/manual-fixes.md` step 10.
+* `practice/make-vm-vulnerable.sh` + `practice/README.md`: a VM-only script that deliberately weakens a Mint VM for practice (refuses to run elsewhere).
+
 ### Removed
 * **Hardening and rollback.** The `harden` and `rollback` commands, `--dry-run/--list/--session/--action`, the forensics gate that belonged to `harden`,
   `lib/hardening.sh` and its test suite are gone: every one of the nine automated fixes could cost points when the README contradicts it.

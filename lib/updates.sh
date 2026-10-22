@@ -6,6 +6,8 @@
 
 UPD_TOOL_PACKAGES=' john john-data hydra hydra-gtk nmap zenmap ncat netcat-traditional wireshark wireshark-qt tshark aircrack-ng hashcat nikto ophcrack medusa sqlmap kismet ettercap-text-only ettercap-graphical dsniff hping3 masscan metasploit-framework crunch wifite reaver fcrackzip netdiscover sslstrip '
 
+UPD_GAME_PACKAGES=' aisleriot gnome-mahjongg gnome-mines gnome-sudoku quadrapassel iagno lightsoff gnome-chess four-in-a-row swell-foop tali five-or-more hitori gnome-nibbles gnome-robots gnome-taquin gnome-klotski gnome-tetravex kpat kmines ksudoku supertux supertuxkart frozen-bubble minetest wesnoth 0ad freeciv gweled pingus openttd extremetuxracer neverball armagetronad warzone2100 xonotic steam steam-installer '
+
 audit_updates() {
   local cat="Software and updates"
   if ! tk_have dpkg && ! tk_have dpkg-query; then
@@ -75,6 +77,19 @@ Note: package lists on disk may be out of date; the toolkit does not run 'apt up
         "Removing a package other software depends on can cascade; review apt's removal list first." - yes
     fi
   fi
+  # --- games (usually prohibited by the README, but some images need one)
+  if [[ -n "$pkgs" ]]; then
+    local g ghits=""
+    while IFS= read -r g; do
+      [[ "$UPD_GAME_PACKAGES" == *" $g "* ]] && ghits+="$g "
+    done <<<"$pkgs"
+    if [[ -n "$ghits" ]]; then
+      f_potential low "$cat" "UPD-GAMES" "Games are installed: ${ghits% }" "Packages: ${ghits% }" \
+        "Competition READMEs commonly list games as prohibited software. Linux Mint does not install these by default." \
+        "Check the README. If they are not allowed: 'sudo apt remove PKG' (review apt's removal list first)." \
+        "Removing a package other software depends on can cascade." - yes
+    fi
+  fi
   return 0
 }
 
@@ -115,11 +130,17 @@ upd_audit_apt_config() {
   fi
 
   # auto updates
-  local au; au=$(tkp /etc/apt/apt.conf.d/20auto-upgrades)
+  local au; au=$(tkp /etc/apt/apt.conf.d/20auto-upgrades) uval=""
   if tk_readable "$au"; then
-    f_info "$cat" "UPD-AUTO" "Automatic update configuration (20auto-upgrades)" "$(tk_active_lines "$au")"
+    uval=$(grep -E '^[[:space:]]*APT::Periodic::Unattended-Upgrade' "$au" | tail -n1 | grep -oE '"[^"]*"' | tr -d '"')
+  fi
+  if [[ "$uval" =~ ^[1-9][0-9]*$ ]]; then
+    f_info "$cat" "UPD-AUTO" "Automatic security updates are enabled" "$(tk_active_lines "$au")"
   else
-    f_info "$cat" "UPD-AUTO" "No unattended-upgrades configuration found" "/etc/apt/apt.conf.d/20auto-upgrades missing. Linux Mint uses the Update Manager rather than unattended-upgrades by default, so this is normal."
+    f_potential low "$cat" "UPD-AUTO" "Automatic security updates are not enabled" "$(tk_readable "$au" && tk_active_lines "$au" || echo '/etc/apt/apt.conf.d/20auto-upgrades is missing')" \
+      "Linux Mint uses the Update Manager by default, so nothing installs security updates unattended. Automatic updates are a common hardening item, but the README decides whether they are wanted." \
+      "Install and enable: sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades (see docs/manual-fixes.md)." \
+      "Updates can install and restart services without asking." - yes
   fi
   return 0
 }

@@ -161,7 +161,9 @@ sched_audit_startup() {
     [[ -f "$f" ]] || continue
     if ! tk_readable "$f"; then f_unperformed "$cat" "SCHED-PROFILE-$(sched_sanitize_id "$(tk_unroot "$f")")" "Profile $(tk_unroot "$f")" "unreadable"; continue; fi
     sched_scan_file "$f" "$cat" SCHED-PROFILE
-    local al; al=$(grep -nE '^[[:space:]]*alias[[:space:]]+(sudo|su|passwd|ssh|ls|cat|ps|netstat|ss)=' "$f" || true)
+    # stock Ubuntu/Mint .bashrc defines alias ls='ls --color=auto' (and grep/dir/vdir the same way): not a finding
+    local al; al=$( { grep -nE '^[[:space:]]*alias[[:space:]]+(sudo|su|passwd|ssh|ls|cat|ps|netstat|ss)=' "$f" \
+      | grep -vE "alias[[:space:]]+(ls|dir|vdir)=['\"]?[a-z]+ --color=(auto|always|never)['\"]?[[:space:]]*(#.*)?$"; } || true)
     [[ -n "$al" ]] && f_potential medium "$cat" "SCHED-ALIAS-$(sched_sanitize_id "$(tk_unroot "$f")")" "Shell profile redefines a security-relevant command: $(tk_unroot "$f")" "$al" \
       "Aliases can hide activity or capture passwords." "Read the alias; remove if unauthorised." "" - yes
   done

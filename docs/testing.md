@@ -1,7 +1,7 @@
 # Testing
 
 > **Read this first.** The automated suite exercises the toolkit against *fixture file trees* and *mocked system
-> commands*. It proves the logic (parsing, classification, redaction, confirmation, backup, verification, rollback).
+> commands*. It proves the logic (parsing, classification, redaction, report content, the read-only guarantee).
 > It does **not** prove that real `ufw`, `sshd`, LightDM, `gsettings` or `apt` behave as the mocks assume.
 > That is what the VM procedure below is for. **Do not claim a Mint version/edition is "tested" until its row in
 > the VM table is filled in with a real run.**
@@ -18,9 +18,9 @@ Results are also written to `tests/last-results.txt` (git-ignored) together with
 | Suite | What it proves |
 |---|---|
 | `test_reporting.sh` | finding store, unique IDs, input validation, **secret redaction**, encode/decode round-trip, ordering, terminal summary wording, report content (evidence/why/action/side effects/automation/manual) |
-| `test_detection.sh` | Mint 21.x/22.x (Cinnamon/MATE/Xfce) → *targeted*; Mint 20/23, LMDE, Ubuntu → *limited*; Fedora, Darwin, missing os-release → *unsupported*; missing `dpkg`; desktop fallbacks; `os-release` is parsed not executed; hardening refused when not targeted |
+| `test_detection.sh` | Mint 21.x/22.x (Cinnamon/MATE/Xfce) → *targeted*; Mint 20/23, LMDE, Ubuntu → *limited*; Fedora, Darwin, missing os-release → *unsupported*; missing `dpkg`; desktop fallbacks; `os-release` is parsed not executed; `harden`, `rollback` and `--dry-run` no longer exist and are rejected as unknown |
 | `test_audit.sh` | healthy system → **0 confirmed findings** (false-positive guard); every planted weakness found and correctly classed; no secrets in any output file; **audit leaves the system byte-identical** and issues no state-changing command; audit guard blocks 20 mutating commands; unprivileged runs report *Unperformed*; missing utilities; MATE/Xfce/Cinnamon screen-lock paths; CLI behaviour; repeated runs give identical IDs |
-| `test_hardening.sh` | root required; dry-run changes nothing; only exact `yes` consents (`y`, `YES`, empty, EOF refused); all nine actions applied + verified; backups byte-identical; manifest/log content; **idempotent re-run**; audit after hardening shows the fixes; full and per-action rollback restores a byte-identical tree; invalid session ids/path traversal rejected; damaged backup reported honestly; injected failures (`sshd -t` fails, reload fails, `sysctl` fails, `ufw enable` fails) **auto-revert**; one failing action does not block others; service-disruption warnings shown; unwritable backup location aborts before any change |
+| `test_scoring.sh` | Scoring Report notes (ordering, matching, hostile input rejected, 200-item cap), report sections (remaining scored issues, recommended order, unscored weaknesses, unresolved questions, potential penalties, checklist), change-risk classes, expected-image row, the `connectivity` module (route, DNS, proxy redaction, outbound firewall, internet probe, `--scoring-host`, `--no-network-probe`) and the audit guard that allows exactly one `ping` / one `curl` form |
 
 ### Latest results (this build)
 
@@ -30,25 +30,25 @@ Fixtures + mocked commands only. **No Linux Mint system, VM or WSL was used for 
 
 | Suite | Passed | Failed | Skipped | Run |
 |---|---|---|---|---|
-| reporting | 52 | 0 | 0 | 2026-10-20, after the scoring/connectivity changes |
-| detection | 39 | 0 | 0 | 2026-10-20, same |
-| audit | 271 | 0 | 1 (`chmod 000` unreadable-file case; Windows cannot enforce it) | 2026-10-21, final |
-| scoring (new) | 81 | 0 | 0 | 2026-10-20, final |
-| hardening | 195 | 0 | 1 (700 mode of the backup directory; Windows cannot report POSIX modes) | 2026-10-21, final (after the Avahi-port and risk-wording fixes) |
+| reporting | 52 | 0 | 0 | 2026-10-21, after hardening was removed |
+| detection | 42 | 0 | 0 | 2026-10-21, same |
+| audit | 314 | 0 | 1 (`chmod 000` unreadable-file case; Windows cannot enforce it) | 2026-10-21, same |
+| scoring | 81 | 0 | 0 | 2026-10-21, same |
 
 Honesty notes:
-* The suites were run in parallel rather than through `tests/run_all.sh`, so `tests/last-results.txt` was not regenerated. Run
-  `bash tests/run_all.sh` once on your machine for a single consistent run.
+* The suites were started individually (two at a time at most: four in parallel exhausted Git Bash's process limit and crashed two of them, which
+  were then re-run alone), so `tests/last-results.txt` was not regenerated. Run `bash tests/run_all.sh` once for a single consistent run.
+* `test_hardening.sh` (195 tests at its last run) was deleted together with `harden`/`rollback`; those numbers no longer count.
 * The `scoring` suite covers the Scoring Report notes, the report sections and risk classes, the checklist, the expected-image row, the
-  connectivity module and the audit guard for `ping`/`curl`. Hardening tests cover the risk class, notes-first ordering, `results.tsv`
-  and the UFW connectivity check (including automatic revert).
+  connectivity module and the audit guard for `ping`/`curl`.
 * Bugs the suite caught while the toolkit was being built are listed in `CHANGELOG.md`.
-* Total automated checks: 638 passed, 0 failed, 2 skipped. **None of them ran on real Linux Mint.**
+* Total automated checks: 489 passed, 0 failed, 1 skipped. **None of them ran on real Linux Mint.**
+* Real-VM run 2026-10-21 (VirtualBox, **Linux Mint 22.3 Cinnamon**, non-root): `tests/vm_smoke_test.sh` passed 7 of 7 (detect, two audits with identical finding ids, the audit changed no watched file, no password hash in the report). It exposed three false positives that are now fixed and covered by tests: the stock `alias ls='ls --color=auto'` in `.bashrc`, the stock Samba `map to guest = bad user` / `usershare allow guests = yes` lines, and one port finding reported twice (IPv4 + IPv6). Not yet run on a real system: the root run (`sudo`), `--scoring-notes` against real findings, and anything on Mint 21.
 * Manual run on a real VM (2026-10-20, VirtualBox 7.2.20, **Linux Mint 22.3 Cinnamon** on Ubuntu 24.04, not Mint 21): `detect`, a full
   `sudo audit` (12 modules, no module failed; 1 Confirmed, 23 Potential, 27 Info, 0 Unperformed on a fresh install) and `sudo harden --dry-run`
-  all ran correctly, including real `ping`, `getent` and `ip route` output in the new connectivity module. That run found two display flaws
+  (a command that has since been removed) all ran correctly, including real `ping`, `getent` and `ip route` output in the new connectivity module. That run found two display flaws
   (Avahi's random UDP ports listed as "unreachable"; the sysctl action's risk text said Low next to class HIGH), both fixed and covered by tests.
-  **Not yet done on a real system:** an applied `harden` followed by `rollback`, `--scoring-notes` against real findings, and anything on Mint 21.
+  **Not yet done on a real system:** `--scoring-notes` against real findings, the practice script `practice/make-vm-vulnerable.sh`, and anything on Mint 21.
 <!-- RESULTS:END -->
 
 ### Known gaps in the automated suite
@@ -76,34 +76,24 @@ With 16 GB RAM you can run one VM at a time comfortably.
 4. Boot the ISO, **Install Linux Mint** (erase the virtual disk). Create a user such as `alice` (that is the VM's own account).
 5. After install: `sudo apt update && sudo apt full-upgrade -y`, reboot, install Guest Additions only if you need screen resize.
 6. **Take a snapshot named `clean-install`** (Machine → Take Snapshot). Always test from a snapshot and revert afterwards:
-   *never* run `harden` on your Windows PC or on a non-disposable machine.
+   *never* run `practice/make-vm-vulnerable.sh` on your Windows PC or on a non-disposable machine.
 7. Copy the toolkit in: `git clone …` inside the VM (NAT gives internet), or a zip over a temporary shared folder you remove afterwards.
 
 ### What to run in each VM
 ```bash
 cd cyberpatriot-mint-toolkit && chmod +x mint-toolkit.sh tests/*.sh tests/mocks/*.sh
-bash tests/vm_smoke_test.sh               # detect + 2 audits + dry-run; as a normal user
+bash tests/vm_smoke_test.sh               # detect + 2 audits; as a normal user
 sudo bash tests/vm_smoke_test.sh          # same as root (no more 'Unperformed' for privilege)
 bash tests/run_all.sh reporting detection # logic suites on real GNU/Linux tools (mawk, bash 5.1/5.2)
 ```
-Then, **only after taking a snapshot**, make the VM deliberately weak and watch the audit catch it:
+Then, **only after taking a snapshot**, make the VM deliberately weak and watch the audit catch it with the practice script, which refuses to
+run anywhere but a Mint VM (see [../practice/README.md](../practice/README.md)):
 ```bash
-sudo useradd -m -s /bin/bash testuser                    # extra account
-sudo passwd -d testuser                                  # empty password
-sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config   # if openssh-server installed
-sudo apt install -y openssh-server vsftpd                # extra services
-sudo chmod 666 /etc/passwd /etc/shadow                   # DESTRUCTIVE to the VM's security only
-echo '* * * * * root /tmp/x.sh' | sudo tee /etc/cron.d/t # suspicious cron
-sudo ./mint-toolkit.sh audit
-sudo ./mint-toolkit.sh harden --dry-run
-sudo ./mint-toolkit.sh harden          # answer yes/no; try declining, then repeat applying
-sudo ./mint-toolkit.sh audit           # confirm the fixes
-sudo ./mint-toolkit.sh rollback --list
-sudo ./mint-toolkit.sh rollback --session <id>
+sudo bash practice/make-vm-vulnerable.sh     # type the confirmation phrase it asks for, then reboot and snapshot "weak-baseline"
+sudo ./mint-toolkit.sh audit --authorized-users YOU,alice,bob --authorized-admins YOU,bob --required-services ssh,apache2 --allow-ports 22,80
+# fix things by hand (docs/manual-fixes.md), then audit again to confirm
 ```
-Also run `sudo bash tests/vm_smoke_test.sh --harden`, which automates the apply → audit → rollback → fingerprint comparison.
-Test a **required-service** scenario: with SSH running and a remote session open (from the host via a NAT port-forward),
-confirm `H-UFW-ENABLE` keeps the session alive, and that `H-SSH-ROOTLOGIN` does not break a normal-user login.
+There is no longer a `harden`/`rollback` to test: the fixes are manual, and the audit is how you confirm them.
 
 ### Record the result
 Fill one row per VM. A row counts only if `vm_smoke_test.sh` reported `0 failed`.

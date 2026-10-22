@@ -348,6 +348,85 @@ assert_eq "visudo -c and lightdm --show-config pass the audit guard" 0 "$(head -
 assert_eq "other visudo/lightdm invocations are blocked" 4 "$(tail -4 "$E/g.txt" | grep -c 'rc=126')"
 
 # =====================================================================
+t_section "Extra checks: password ageing, automatic updates, games, Firefox"
+mk_env extra "$BASE"; T_EUID=0
+sed -i 's/^PASS_WARN_AGE.*/PASS_WARN_AGE   3/' "$E/root/etc/login.defs"
+printf 'aisleriot\ngnome-mines\n' >>"$E/cmds/dpkg-query.W.out"
+mkdir -p "$E/root/home/alice/.mozilla/firefox/abc.default" "$E/root/home/bob/.mozilla/firefox/xyz.default"
+printf 'user_pref("dom.disable_open_during_load", false);\nuser_pref("browser.safebrowsing.malware.enabled", true);\nuser_pref("browser.startup.homepage", "https://example.org");\n' >"$E/root/home/alice/.mozilla/firefox/abc.default/prefs.js"
+printf 'user_pref("security.tls.version.min", 1);\nuser_pref("browser.safebrowsing.phishing.enabled", false);\nuser_pref("browser.safebrowsing.phishing.enabled", true);\n' >"$E/root/home/bob/.mozilla/firefox/xyz.default/user.js"
+run_tk audit --modules authentication,updates,desktop_security
+assert_eq "extra-check audit exits 0" 0 "$T_RC"
+expect_class AUTH-LOGINDEFS-MINDAYS POTENTIAL low
+expect_class AUTH-LOGINDEFS-WARN POTENTIAL low
+expect_class UPD-AUTO POTENTIAL low
+assert_file_has "the missing automatic-update file is named" "$(latest_report)" "20auto-upgrades is missing"
+expect_class UPD-GAMES POTENTIAL low
+assert_file_has "installed games are named" "$(latest_report)" "aisleriot gnome-mines"
+expect_class DESK-FIREFOX-INSECURE POTENTIAL low
+assert_file_has "popup blocker off is reported with its file" "$(latest_report)" "/home/alice/.mozilla/firefox/abc.default/prefs.js: dom.disable_open_during_load = false"
+assert_file_has "old TLS minimum is reported" "$(latest_report)" "security.tls.version.min = 1"
+assert_file_lacks "a setting that is still on is not reported" "$(latest_report)" "browser.safebrowsing.malware.enabled = "
+assert_file_lacks "only the LAST value of a preference counts" "$(latest_report)" "browser.safebrowsing.phishing.enabled = "
+
+mk_env extra_ok "$BASE"; T_EUID=0
+printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n' >"$E/root/etc/apt/apt.conf.d/20auto-upgrades"
+sed -i 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS   1/' "$E/root/etc/login.defs"
+mkdir -p "$E/root/home/alice/.mozilla/firefox/abc.default"
+printf 'user_pref("dom.disable_open_during_load", true);\n' >"$E/root/home/alice/.mozilla/firefox/abc.default/prefs.js"
+run_tk audit --modules authentication,updates,desktop_security
+assert_eq "automatic security updates enabled: INFO" INFO "$(finding_class UPD-AUTO)"
+assert_eq "no games on a clean system" "" "$(finding_class UPD-GAMES)"
+assert_eq "minimum password age of 1 is fine" "" "$(finding_class AUTH-LOGINDEFS-MINDAYS)"
+assert_eq "warning age of 7 is fine" "" "$(finding_class AUTH-LOGINDEFS-WARN)"
+assert_eq "healthy Firefox prefs: INFO, not a finding" INFO "$(finding_class DESK-FIREFOX)"
+assert_eq "…and no insecure-Firefox finding" "" "$(finding_class DESK-FIREFOX-INSECURE)"
+mk_env extra_nofx "$BASE"; T_EUID=0
+run_tk audit --modules desktop_security
+assert_file_has "no Firefox profile: said so" "$(latest_report)" "No Firefox preference files found"
+
+# =====================================================================
+t_section "False positives found on a real Mint 22.3 VM"
+mk_env realmint "$BASE"; T_EUID=0
+printf "alias ls='ls --color=auto'\nalias grep='grep --color=auto'\nalias ll='ls -alF'\n" >"$E/root/home/alice/.bashrc"
+run_tk audit --modules scheduled_tasks
+assert_eq "stock .bashrc aliases (ls --color=auto, grep, ll) are not reported" "" "$(finding_ids | grep '^SCHED-ALIAS' | tr '\n' ' ')"
+printf "alias ls='ls --color=auto'\nalias sudo='/tmp/evil-sudo'\n" >"$E/root/home/alice/.bashrc"
+run_tk audit --modules scheduled_tasks
+assert_eq "a real redefinition of sudo is still reported" POTENTIAL "$(finding_class SCHED-ALIAS-home-alice-bashrc)"
+assert_file_has "…showing the sudo line" "$(latest_report)" "alias sudo='/tmp/evil-sudo'"
+assert_file_lacks "…but not the harmless ls line" "$(latest_report)" "alias ls='ls --color=auto'"
+
+mk_env realsamba "$BASE"; T_EUID=0
+mkdir -p "$E/root/etc/samba"
+printf '[global]\n   map to guest = bad user\n   usershare allow guests = yes\n[printers]\n   guest ok = no\n' >"$E/root/etc/samba/smb.conf"
+run_tk audit --modules applications
+assert_eq "stock Samba guest settings: INFO only" INFO "$(finding_class APP-SAMBA-STOCK-GUEST)"
+assert_eq "…no guest finding" "" "$(finding_class APP-SAMBA-GUEST)"
+printf '[global]\n   map to guest = bad user\n[pub]\n   path = /srv/pub\n   guest ok = yes\n' >"$E/root/etc/samba/smb.conf"
+run_tk audit --modules applications
+expect_class APP-SAMBA-GUEST POTENTIAL medium
+assert_eq "a share with 'guest ok = yes' is still found" "" "$(finding_class APP-SAMBA-STOCK-GUEST)"
+
+mk_env realports "$BASE"; T_EUID=0
+printf 'udp   UNCONN 0      0             0.0.0.0:5353       0.0.0.0:*\nudp   UNCONN 0      0                [::]:5353          [::]:*\n' >>"$E/cmds/ss.H.tulnp.out"
+run_tk audit --modules network
+assert_eq "mDNS on IPv4 and IPv6 gives ONE port finding" POTENTIAL "$(finding_class NET-PORT-udp-5353)"
+assert_eq "…and no duplicate '-2' finding" "" "$(finding_class NET-PORT-udp-5353-2)"
+assert_eq "…while both sockets stay in the listing" 2 "$(grep -cE '^udp +(0\.0\.0\.0|::) +5353' "$(latest_report)")"
+
+# =====================================================================
+t_section "Repository hygiene (things that only break on real Linux)"
+# NB: counting bytes with tr is reliable; grep patterns containing a CR are not, on Git Bash for Windows
+all_scripts=("$PROJECT"/mint-toolkit.sh "$PROJECT"/lib/*.sh "$PROJECT"/tests/*.sh "$PROJECT"/tests/mocks/*.sh "$PROJECT"/practice/*.sh)
+crlf=$(for f in "${all_scripts[@]}"; do [[ $(tr -cd '\r' <"$f" | wc -c) -gt 0 ]] && basename "$f"; done | tr '\n' ' ')
+assert_eq "no shell script has Windows (CRLF) line endings" "" "$crlf"
+shebang_bad=$(for f in "$PROJECT"/mint-toolkit.sh "$PROJECT"/tests/*.sh "$PROJECT"/tests/mocks/*.sh "$PROJECT"/practice/*.sh; do [[ "$(head -n1 "$f")" == '#!/usr/bin/env bash' ]] || basename "$f"; done | tr '\n' ' ')
+assert_eq "every runnable script starts with '#!/usr/bin/env bash'" "" "$shebang_bad"
+nonascii=$(for f in "$PROJECT"/mint-toolkit.sh "$PROJECT"/lib/*.sh; do [[ $(tr -d '\000-\177' <"$f" | wc -c) -gt 0 ]] && basename "$f"; done | tr '\n' ' ')
+assert_eq "toolkit code is plain ASCII (no smart quotes that bash would reject)" "" "$nonascii"
+
+# =====================================================================
 t_section "CLI behaviour"
 mk_env cli "$BASE"
 run_tk audit --modules users

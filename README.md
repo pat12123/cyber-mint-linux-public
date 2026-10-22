@@ -30,7 +30,8 @@ UFW · services · permissions of sensitive files, world-writable files, SUID/SG
 insecure apt settings, attack tooling · cron/at/systemd timers/startup/profile persistence ·
 LightDM autologin/guest + screen lock for Cinnamon/MATE/Xfce · kernel network settings, promiscuous interfaces ·
 application configs (vsftpd, Apache, MySQL/MariaDB, PHP, Samba) and PHP web-shell patterns · `/etc/hosts` redirects ·
-leftover `pam_tally2`/`pam_cracklib` that would break logins · sudoers syntax · listening ports mapped to their package.
+leftover `pam_tally2`/`pam_cracklib` that would break logins · sudoers syntax · listening ports mapped to their package ·
+password minimum age / warning days · automatic security updates · installed games · weakened Firefox settings.
 
 ### Scoring-aware workflow
 
